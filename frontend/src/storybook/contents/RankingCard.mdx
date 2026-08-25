@@ -64,7 +64,7 @@ import * as RankingCardStories from './RankingCard.stories'
 
 <Canvas of={RankingCardStories.AvatarsAndLongName} />
 
-`avatarUrl`이 없으면 회색 원 + `User` 아이콘으로 대체된다(빈 자리로 무너지지 않는다). 이미지는 `next/image`가 아니라 `<img>`를 직접 쓰고, 이름이 옆에 있으므로 `alt=""`(장식)이 맞다. 이름은 `truncate`라 길어져도 순위·총점 컬럼을 밀지 않는다.
+`avatarUrl`이 없으면 회색 원 + `User` 아이콘으로 대체된다(빈 자리로 무너지지 않는다). 아바타는 `predict/shared.tsx`의 `UserAvatar`(Radix Avatar)가 그리므로 URL이 있는데 404여도 같은 폴백으로 떨어진다. 이름이 옆에 있으므로 `alt=""`(장식)이 맞다. 이름은 `truncate`라 길어져도 순위·총점 컬럼을 밀지 않는다.
 
 ## 알려진 제약
 

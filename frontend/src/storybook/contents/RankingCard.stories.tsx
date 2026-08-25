@@ -6,6 +6,10 @@ import { RankingCard, type RankingEntry } from '@/components/composition/predict
 // 다른 예측 mock과 같은 placehold.co를 쓴다.
 const PLACEHOLDER_AVATAR = 'https://placehold.co/56x56/2a2f36/8a929c?text=%20'
 
+// 로드 실패 폴백을 결정적으로 재현하려면 반드시 404가 나는 주소가 필요하다(`TeamBadge.stories.tsx`와
+// 같은 방식). 구글 아바타는 가입 시점 주소를 저장해 재사용하므로 실제로 죽은 URL이 남을 수 있다.
+const BROKEN_AVATAR = 'https://lh3.googleusercontent.invalid/a/broken-avatar'
+
 const NAME_POOL = ['김민준', '이서연', '정하윤', '박지훈', '최유진', '강태양', '윤소율', '임도현']
 
 function mockEntry(overrides: Partial<RankingEntry>): RankingEntry {
@@ -159,6 +163,23 @@ export const AvatarsAndLongName: Story = {
       mockEntry({ rank: 1, name: '김민준', totalPoints: 56, delta: 2, avatarUrl: PLACEHOLDER_AVATAR }),
       mockEntry({ rank: 2, name: '이서연', totalPoints: 50, delta: -1 }),
       mockEntry({ rank: 3, name: '뉴캐슬사랑한다내평생을바쳐서', totalPoints: 44, delta: 1, avatarUrl: PLACEHOLDER_AVATAR }),
+    ],
+  },
+}
+
+/**
+ * `avatarUrl`이 **있는데 로드에 실패한** 행 — 구글 아바타 URL이 만료되면 실제로 이 상태가 된다.
+ * `UserAvatar`(Radix Avatar)가 자동으로 폴백하므로 위 `AvatarsAndLongName`의 "아바타 없음" 행과
+ * 같은 결과(회색 원 + `User` 아이콘)가 나와야 한다 — 깨진 이미지 아이콘이 뜨면 회귀다.
+ */
+export const BrokenAvatar: Story = {
+  args: {
+    variant: 'top3',
+    limit: 3,
+    entries: [
+      mockEntry({ rank: 1, name: '깨진 URL', totalPoints: 56, delta: 2, avatarUrl: BROKEN_AVATAR }),
+      mockEntry({ rank: 2, name: '아바타 없음(null)', totalPoints: 50, delta: -1 }),
+      mockEntry({ rank: 3, name: '정상 아바타', totalPoints: 44, delta: 1, avatarUrl: PLACEHOLDER_AVATAR }),
     ],
   },
 }

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { User } from 'lucide-react'
 import type { RankingRow } from '@/lib/queries/predictions'
 import { cn } from '@/lib/utils'
+import { UserAvatar } from './shared'
 
 /** 데스크탑은 10명까지만 보여주고 "전체보기"로 펼친다(퍼블리싱 `WEEK_RANK_CAP`). */
 const DESKTOP_CAP = 10
@@ -112,14 +112,7 @@ function RankRow({ entry }: { entry: RankingRow }) {
         {entry.rank}
       </span>
 
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-disabled text-neutral-subtle">
-        {entry.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={entry.avatarUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <User className="h-3.5 w-3.5" />
-        )}
-      </span>
+      <UserAvatar url={entry.avatarUrl} />
 
       <span className="min-w-0 flex-1 truncate text-label-2 font-bold text-neutral">{entry.name}</span>
 

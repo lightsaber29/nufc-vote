@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { User } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/primitives/avatar'
 import { Button } from '@/components/primitives/button'
 
@@ -60,6 +61,25 @@ export function PlayerPhoto({ url, size = 64 }: { url: string | null; size?: num
       {url && <AvatarImage src={url} alt="" className="object-cover" />}
       <AvatarFallback className="bg-disabled text-neutral-subtle">
         <Silhouette />
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
+/**
+ * 랭킹 목록의 사용자 아바타 — 사진이 없거나 **로드에 실패해도** User 아이콘 원형으로 떨어진다.
+ * 구글 OAuth 아바타(lh3.googleusercontent.com)는 가입 시점 주소를 profiles.avatar_url에 저장해
+ * 재사용하므로, 사용자가 프로필 사진을 바꾸거나 지우면 죽은 URL이 그대로 남는다 — 랭킹은 여러
+ * 사용자를 한 화면에 나열하니 실패 처리가 없으면 목록에 깨진 이미지 아이콘이 섞인다.
+ * `PlayerPhoto`와 같이 Radix Avatar를 쓰므로 onError 핸들러가 필요 없다.
+ * 기본 28px = 두 랭킹 카드가 쓰던 h-7 w-7.
+ */
+export function UserAvatar({ url, size = 28 }: { url?: string | null; size?: number }) {
+  return (
+    <Avatar className="shrink-0" style={{ width: size, height: size }}>
+      {url && <AvatarImage src={url} alt="" className="object-cover" />}
+      <AvatarFallback className="bg-disabled text-neutral-subtle">
+        <User className="h-3.5 w-3.5" />
       </AvatarFallback>
     </Avatar>
   )

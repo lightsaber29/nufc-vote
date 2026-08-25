@@ -1,5 +1,5 @@
-import { User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { UserAvatar } from './shared'
 
 export interface RankingEntry {
   rank: number
@@ -81,13 +81,7 @@ function RankRow({ entry }: { entry: RankingEntry }) {
         <RankDelta delta={entry.delta} />
       </span>
 
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-disabled text-neutral-subtle">
-        {entry.avatarUrl ? (
-          <img src={entry.avatarUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <User className="h-3.5 w-3.5" />
-        )}
-      </span>
+      <UserAvatar url={entry.avatarUrl} />
 
       <span className="min-w-0 flex-1 truncate text-label-2 font-bold text-neutral">{entry.name}</span>
 
