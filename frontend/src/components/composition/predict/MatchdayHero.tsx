@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/primitives/button'
 import { Badge } from '@/components/primitives/badge'
+import { teamLogoUrl } from '@/lib/predictions/week'
 import type { MatchdayFixture, MatchdayRatedPlayer, MatchdayPositionLeader } from '@/lib/queries/fixtures'
 
 /**
@@ -14,14 +15,10 @@ import type { MatchdayFixture, MatchdayRatedPlayer, MatchdayPositionLeader } fro
  *
  * 타입 정의는 `lib/queries/fixtures.ts`가 갖고 있다(polls.ts/PollListItem과 같은 관례) —
  * 여기서는 재수출만 해서 기존 임포트 지점을 안 건드린다.
- * home_id/away_id는 FotMob 팀 ID라 크레스트는 images.fotmob.com에서 직접 조립한다
+ * home_id/away_id는 FotMob 팀 ID고, 크레스트 주소는 week.ts의 teamLogoUrl이 조립한다
  * (별도 로고 테이블/매핑 불필요).
  */
 export type { MatchdayFixture }
-
-function crestUrl(teamId: number) {
-  return `https://images.fotmob.com/image_resources/logo/teamlogo/${teamId}.png`
-}
 
 function formatKickoff(iso: string) {
   return new Date(iso).toLocaleString('ko-KR', {
@@ -72,7 +69,7 @@ function TeamBadge({ id, name, align }: { id: number; name: string; align: 'star
     <div
       className={`flex w-[88px] flex-col items-center gap-1.5 ${align === 'end' ? 'justify-self-end' : 'justify-self-start'}`}
     >
-      <img src={crestUrl(id)} alt="" className="h-11 w-11 object-contain" />
+      <img src={teamLogoUrl(id)} alt="" className="h-11 w-11 object-contain" />
       <p className="max-w-[88px] truncate text-caption-1 font-semibold text-on-solid">{name}</p>
     </div>
   )

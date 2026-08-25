@@ -73,9 +73,19 @@ export type WeekGroup = {
 /** 예측 플로우/완료 화면이 다루는 세션 하나 = 주차 하나. */
 export type WeekSession = WeekGroup
 
-/** fixtures가 FotMob 동기화 데이터라 엠블럼도 같은 CDN을 쓴다. */
+/**
+ * 팀 크레스트. FotMob 팀 ID당 불변이라 CDN에 매달리지 않고 Storage에 복사해뒀다
+ * (`player-photos/team-logos/{id}.png`). 승격팀이 생기면 그 자리에 파일만 올리면 된다.
+ * mock 모드는 Supabase URL이 없으므로 원본 CDN으로 떨어진다 — lib/config의 IS_MOCK과 같은
+ * 조건이지만, week.test.mjs가 이 파일을 transpile 후 eval해서 값 import를 못 받으므로 인라인이다.
+ */
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+const LOGO_BASE = SUPABASE_URL.startsWith('http')
+  ? `${SUPABASE_URL}/storage/v1/object/public/player-photos/team-logos`
+  : 'https://images.fotmob.com/image_resources/logo/teamlogo'
+
 export function teamLogoUrl(teamId: number): string {
-  return `https://images.fotmob.com/image_resources/logo/teamlogo/${teamId}.png`
+  return `${LOGO_BASE}/${teamId}.png`
 }
 
 /** UTC 시각을 한국 기준 달력 날짜로 옮긴 Date(한국은 DST 없음). */
