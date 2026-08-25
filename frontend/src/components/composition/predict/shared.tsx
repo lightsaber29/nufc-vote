@@ -51,8 +51,8 @@ export function Silhouette({ className }: { className?: string }) {
 
 /**
  * 선수 사진 자리 — 사진이 없거나 **로드에 실패해도** 실루엣 원형으로 떨어진다.
- * `ui/avatar.tsx`(Radix Avatar)를 쓰므로 onError 핸들러가 필요 없다: FotMob CDN 주소가
- * 404/403인 선수(사진이 아예 없는 신입·유스)도 깨진 이미지 대신 실루엣이 남는다.
+ * `ui/avatar.tsx`(Radix Avatar)를 쓰므로 onError 핸들러가 필요 없다: Storage에 사진이 없는
+ * 선수(막 합류해 아직 안 올린 경우)도 404를 받아 깨진 이미지 대신 실루엣이 남는다.
  * 크기는 Avatar 기본값(h-10 w-10)을 인라인 스타일로 덮어써서 임의 px를 그대로 받는다.
  */
 export function PlayerPhoto({ url, size = 64 }: { url: string | null; size?: number }) {

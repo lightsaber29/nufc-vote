@@ -25,9 +25,21 @@ export type Candidate = {
   photoUrl: string | null
 }
 
-/** fixtures 엠블럼과 같은 FotMob CDN. 없는 선수는 404라 <img> onError 폴백에 맡긴다. */
+/**
+ * 선수 사진. FotMob 선수 ID당 불변이라 CDN에 매달리지 않고 Storage에 복사해뒀다
+ * (`player-photos/players/{id}.png`) — 팀 크레스트(`week.ts`의 `teamLogoUrl`)와 같은 방식이다.
+ * 이적·영입으로 스쿼드가 바뀌면 그 자리에 파일만 올리면 된다. 없는 선수는 404라
+ * `PlayerPhoto`(Radix Avatar)의 실루엣 폴백에 맡긴다.
+ * mock 모드는 Supabase URL이 없으므로 원본 CDN으로 떨어진다 — lib/config의 IS_MOCK과 같은
+ * 조건이지만, 이 모듈을 값 import 없이 두려고 week.ts와 마찬가지로 인라인이다.
+ */
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+const PHOTO_BASE = SUPABASE_URL.startsWith('http')
+  ? `${SUPABASE_URL}/storage/v1/object/public/player-photos/players`
+  : 'https://images.fotmob.com/image_resources/playerimages'
+
 export function playerPhotoUrl(fotmobPlayerId: number): string {
-  return `https://images.fotmob.com/image_resources/playerimages/${fotmobPlayerId}.png`
+  return `${PHOTO_BASE}/${fotmobPlayerId}.png`
 }
 
 export function isPickPosition(position: string): position is Position {
