@@ -6,6 +6,8 @@ import { koreanTeamName } from '@/lib/predict/team-names'
 import { toKst, weekKey } from '@/lib/predictions/week'
 import { playerPhotoUrl } from '@/lib/predictions/candidates'
 import { mockGetHomeMatchdayFixture } from '@/lib/mock/queries'
+import { generateHint, type HintFacts, type PastMatch } from '@/lib/ai/hint'
+import { NUFC_TEAM_ID } from '@/lib/predictions/week'
 // 예측 목록(주차 그룹)은 승부예측 기능에서 쓰는 별개 경로다 — 같은 fixtures 테이블을 읽지만
 // 컬럼·가공 방식이 달라서 FixtureRow도 서로 다른 타입이라 별칭으로 구분한다.
 import {
@@ -279,4 +281,168 @@ export const getFixtureWeeks = unstable_cache(getFixtureWeeksUncached, ['fixture
   revalidate: 300,
   // 관리자 동기화 버튼(lib/actions/sync-fixtures.ts)이 이 태그로 캐시를 즉시 비운다.
   tags: ['fixture-weeks'],
+})
+
+// ============================================================
+// 예측 화면 AI 참고 문구
+// ============================================================
+
+/** 목 모드는 Gemini를 부르지 않는다 — 화면 확인용 고정 문구. */
+const MOCK_WEEK_HINT =
+  '뉴캐슬은 최근 5경기에서 경기당 1.4골을 넣고 1.8골을 실점했어요. ' +
+  '무실점 경기는 없었고 다섯 경기 모두 양 팀이 득점했어요. ' +
+  '아스널, 브렌트포드 모두 이번 시즌 첫 맞대결이에요.'
+
+/** 문구 재료로 쓸 지난 경기 수. 늘리면 프롬프트만 길어지고 문장은 그대로라 5로 둔다. */
+const HINT_RECENT_LIMIT = 5
+/** 상대전적으로 보여줄 맞대결 수. */
+const HINT_H2H_LIMIT = 3
+/**
+ * 공식전을 우선 채우려면 최근 N경기만 봐서는 안 된다 — 프리시즌엔 상위 5경기가 전부 친선일 수
+ * 있다. 넉넉히 읽어 코드에서 고른다. fixtures는 한 시즌 50경기 남짓이라 이 정도는 부담이 없다.
+ */
+const HINT_SCAN_LIMIT = 30
+
+/**
+ * 친선경기 판정 — FotMob이 competition_name에 내려주는 값이다(2026-08-25 실측: 'Club Friendlies').
+ * 다른 표기가 발견되면 여기에 추가한다.
+ */
+const FRIENDLY_COMPETITIONS = ['Club Friendlies']
+
+const HINT_FIXTURE_COLUMNS =
+  'fixture_id, kickoff_at, home_id, home_name, home_score, away_id, away_name, away_score, competition_name'
+
+type HintFixtureRow = {
+  fixture_id: number
+  kickoff_at: string | null
+  home_id: number
+  home_name: string
+  home_score: number | null
+  away_id: number
+  away_name: string
+  away_score: number | null
+  competition_name: string | null
+}
+
+/**
+ * 종료된 fixtures row를 뉴캐슬 관점의 PastMatch로 바꾼다.
+ * 스코어가 없으면 득실을 셀 수 없으므로 여기서 걸러낸다.
+ */
+function toPastMatch(row: HintFixtureRow): PastMatch | null {
+  if (row.home_score === null || row.away_score === null) return null
+
+  const isHome = row.home_id === NUFC_TEAM_ID
+  const [gf, ga] = isHome ? [row.home_score, row.away_score] : [row.away_score, row.home_score]
+
+  return {
+    opponent: isHome ? koreanTeamName(row.away_id, row.away_name) : koreanTeamName(row.home_id, row.home_name),
+    isHome,
+    gf,
+    ga,
+    isFriendly: FRIENDLY_COMPETITIONS.includes(row.competition_name ?? ''),
+  }
+}
+
+/**
+ * 공식전을 먼저 채우고, 모자란 만큼만 친선경기로 보충한다(2026-08-25 확정).
+ * 프리시즌엔 최근 5경기가 거의 친선이라 그대로 쓰면 친선 성적을 공식 기록처럼 보여주게 되고,
+ * 친선을 아예 빼면 시즌 초에 재료가 비어 카드가 안 뜬다. 양쪽을 다 피하는 절충이다.
+ * 친선이 섞였다는 사실은 PastMatch.isFriendly로 프롬프트까지 전달된다.
+ */
+function pickRecent(matches: PastMatch[], limit: number): PastMatch[] {
+  const official = matches.filter(m => !m.isFriendly)
+  if (official.length >= limit) return official.slice(0, limit)
+
+  const friendly = matches.filter(m => m.isFriendly)
+  return [...official, ...friendly.slice(0, limit - official.length)]
+}
+
+/**
+ * 프롬프트 재료를 모은다. 주차 단위다 — 카드가 주차당 한 장이라 그 주 경기를 전부 받는다.
+ * 예측할 경기가 없으면 null.
+ */
+async function collectHintFacts(
+  supabase: ReturnType<typeof createPublicClient>,
+  fixtureIds: number[],
+): Promise<HintFacts | null> {
+  if (fixtureIds.length === 0) return null
+
+  const { data: targets } = (await supabase
+    .from('fixtures')
+    .select(HINT_FIXTURE_COLUMNS)
+    .in('fixture_id', fixtureIds)
+    .order('kickoff_at', { ascending: true })) as { data: HintFixtureRow[] | null }
+  if (!targets || targets.length === 0) return null
+
+  const toMatches = (rows: unknown) =>
+    ((rows ?? []) as HintFixtureRow[])
+      .map(toPastMatch)
+      .filter((match): match is PastMatch => match !== null)
+
+  const opponentIdOf = (row: HintFixtureRow) =>
+    row.home_id === NUFC_TEAM_ID ? row.away_id : row.home_id
+
+  const [recentResult, ...h2hResults] = await Promise.all([
+    supabase
+      .from('fixtures')
+      .select(HINT_FIXTURE_COLUMNS)
+      .eq('finished', true)
+      .eq('cancelled', false)
+      .order('kickoff_at', { ascending: false })
+      .limit(HINT_SCAN_LIMIT),
+    // 예측 대상 경기 자신은 finished가 아니라 여기 걸리지 않는다.
+    ...targets.map(row =>
+      supabase
+        .from('fixtures')
+        .select(HINT_FIXTURE_COLUMNS)
+        .eq('finished', true)
+        .eq('cancelled', false)
+        .or(`home_id.eq.${opponentIdOf(row)},away_id.eq.${opponentIdOf(row)}`)
+        .order('kickoff_at', { ascending: false })
+        .limit(HINT_H2H_LIMIT),
+    ),
+  ])
+
+  return {
+    matches: targets.map((row, i) => {
+      const isHome = row.home_id === NUFC_TEAM_ID
+      return {
+        opponent: koreanTeamName(
+          opponentIdOf(row),
+          isHome ? row.away_name : row.home_name,
+        ),
+        isHome,
+        headToHead: toMatches(h2hResults[i]?.data),
+      }
+    }),
+    recent: pickRecent(toMatches(recentResult.data), HINT_RECENT_LIMIT),
+  }
+}
+
+/**
+ * 예측 화면에 띄울 AI 참고 문구 — 주차당 한 장.
+ *
+ * 결과를 DB에 저장하지 않는다. 조회 경로가 이미 unstable_cache 뒤에 있어서 컬럼에 넣어봐야
+ * 같은 값을 한 번 더 들고 있는 이중 캐시였다(2026-08-25에 fixtures.ai_hint를 도로 걷어냈다).
+ * 캐시가 만료된 첫 요청만 Gemini를 한 번 부른다.
+ *
+ * 어떤 실패도 던지지 않고 null을 준다 — 문구가 없으면 카드만 빠지고 예측 제출은 그대로 된다.
+ */
+async function getWeekHintUncached(fixtureIds: number[]): Promise<string | null> {
+  if (IS_MOCK) return MOCK_WEEK_HINT
+
+  const facts = await collectHintFacts(createPublicClient(), fixtureIds)
+  if (!facts) return null
+
+  return generateHint(facts)
+}
+
+/**
+ * 캐시 키는 경기 id 목록이다 — 주차가 진행되면서 남은 경기가 줄면(첫 경기 킥오프) 키가 바뀌어
+ * 새 문구가 만들어진다. weekKey로 잡으면 이미 끝난 경기의 상대가 문구에 계속 남는다.
+ */
+export const getWeekHint = unstable_cache(getWeekHintUncached, ['week-ai-hint'], {
+  // 재료는 경기가 끝날 때만 바뀌고 동기화 크론은 하루 한 번이다. 실패(null)가 이 시간만큼
+  // 물려 있는 게 이 캐시의 유일한 비용이라 한 시간으로 잡는다.
+  revalidate: 3600,
 })

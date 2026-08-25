@@ -53,12 +53,15 @@ const ERROR_MESSAGE: Record<SubmitError, string> = {
 export function PredictionFlowClient({
   week,
   pending,
+  hint,
   candidates,
   submitted,
 }: {
   week: WeekSession
   /** 이번에 제출할 경기 — 그 주에서 아직 안 잠기고 미제출인 것들 */
   pending: MatchView[]
+  /** 이번 주차 AI 참고 문구 한 장. 생성 실패면 null이고 카드가 빠진다. */
+  hint: string | null
   candidates: PickCandidates
   /** 남은 경기를 다 제출했으면 내 제출 내역(경기별 스코어 + 주 단위 픽) */
   submitted?: WeekPrediction
@@ -215,6 +218,8 @@ export function PredictionFlowClient({
           </div>
           <div className="hidden sm:block">
             <StepTrackVertical current={step} multi={isMulti} />
+            {/* 스코어를 고를 때만 띄운다 — 득실 정보라 선수 픽·확인 단계에선 쓸모가 없다. */}
+            {step === 'score' && hint && <HintCard text={hint} className="mt-7" />}
           </div>
         </div>
 
@@ -242,6 +247,8 @@ export function PredictionFlowClient({
                     </div>
                   </div>
                 ))}
+                {/* 모바일에는 200px 사이드 칼럼이 없다 — 경기 입력을 다 지난 자리에 한 장 둔다. */}
+                {hint && <HintCard text={hint} className="sm:hidden" />}
               </div>
             )}
 
@@ -408,6 +415,35 @@ function ConfirmTeam({ logoUrl, name }: { logoUrl: string; name: string }) {
     <div className="flex w-[88px] shrink-0 flex-col items-center gap-1.5">
       <TeamBadge logoUrl={logoUrl} name={name} />
       <span className="text-label-2 font-bold text-neutral-muted">{name}</span>
+    </div>
+  )
+}
+
+/** 스파클 — 참조 이미지(image.png)의 ✨ 자리. 아이콘 시스템이 없어 인라인 SVG로 둔다. */
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4 shrink-0 fill-current">
+      <path d="M8 0l1.6 4.7L14 6.3l-4.4 1.6L8 12.6 6.4 7.9 2 6.3l4.4-1.6L8 0z" />
+      <path d="M13 10l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z" />
+    </svg>
+  )
+}
+
+/**
+ * 스코어를 정하기 전에 보는 참고 정보. 추천 스코어는 담지 않는다 — 판단은 사용자가 한다
+ * (2026-08-25 확정). 문구는 서버에서 경기당 한 번 생성돼 fixtures.ai_hint에 저장된 것이다.
+ *
+ * 색은 시스템의 magic 토큰(violet-700)이다 — globals.css에 AI/생성 기능 자리로 정의돼 있던
+ * 색으로, 이 카드가 첫 사용처다.
+ */
+function HintCard({ text, className }: { text: string; className?: string }) {
+  return (
+    <div className={cn('rounded-lg border border-neutral-weak px-3.5 py-3', className)}>
+      <p className="flex items-center gap-1.5 text-label-2 font-bold text-magic">
+        <SparkleIcon />
+        경기 통찰력
+      </p>
+      <p className="mt-1.5 text-body-2 text-neutral">{text}</p>
     </div>
   )
 }

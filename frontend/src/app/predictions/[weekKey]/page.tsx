@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { AppHeader } from '@/components/composition/common/AppHeader'
 import { PredictionFlowClient } from '@/components/composition/predict/PredictionFlowClient'
 import { PredictionResult } from '@/components/composition/predict/PredictionResult'
-import { getFixtureWeeks } from '@/lib/queries/fixtures'
+import { getFixtureWeeks, getWeekHint } from '@/lib/queries/fixtures'
 import { findWeekPrediction, findWeekSession, submittableMatches } from '@/lib/predictions/week'
 import { getPickCandidates } from '@/lib/queries/squads'
 import { getMyPredictions, getMyResults, getWeekRanking } from '@/lib/queries/predictions'
@@ -45,6 +45,9 @@ export default async function PredictionFlowPage({ params }: { params: { weekKey
   // 남은(아직 안 잠긴) 경기 중 미제출이 있으면 그것만 입력받고, 없으면 완료 화면.
   const pending = submittableMatches(week).filter(match => !myPredictions[match.id])
 
+  // 주차당 한 장. 실패하면 null이 되고 화면에서 카드가 빠진다.
+  const hint = await getWeekHint(pending.map(match => Number(match.id)))
+
   return (
     <>
       <AppHeader mobileBack />
@@ -52,6 +55,7 @@ export default async function PredictionFlowPage({ params }: { params: { weekKey
         <PredictionFlowClient
           week={week}
           pending={pending}
+          hint={hint}
           candidates={candidates}
           submitted={pending.length === 0 ? findWeekPrediction(week, myPredictions) : undefined}
         />
